@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X12MOVİE - Premium</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #141414; color: #fff; font-family: 'Helvetica Neue', Arial, sans-serif; overflow-x: hidden; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .movie-card { transition: transform 0.3s ease-in-out, z-index 0.3s; cursor: pointer; position: relative; }
+        .movie-card:hover { transform: scale(1.1); z-index: 50; box-shadow: 0 0 20px rgba(0,0,0,0.8); }
+        .nav-gradient { background: linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%); }
+        .drop-zone { border: 2px dashed #444; padding: 30px; text-align: center; color: #888; background: #1a1a1a; cursor: pointer; transition: 0.3s; }
+        .drop-zone:hover { border-color: #e50914; color: #fff; }
+        .avatar-option { border: 2px solid transparent; transition: 0.2s; cursor: pointer; }
+        .avatar-option:hover { transform: scale(1.1); }
+        .avatar-option.selected { border-color: #e50914; box-shadow: 0 0 10px #e50914; }
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .profile-anim { animation: popIn 0.3s ease-out; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <div id="authScreen" class="fixed inset-0 bg-[url('https://assets.nflxext.com/ffe/siteui/vlv3/f841d4c7-10e1-40af-bcae-07a3f8dc141a/f6d7434e-d6de-4185-a6d4-c77a2d08737b/TR-en-20220502-popsignuptwoweeks-perspective_alpha_website_medium.jpg')] bg-cover bg-center z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/60"></div>
+        <div class="relative bg-black/75 p-12 rounded w-full max-w-md shadow-2xl">
+            <h1 class="text-5xl font-bold text-red-600 mb-8 text-center tracking-widest">X12</h1>
+            <h2 id="authTitle" class="text-3xl font-bold mb-6 text-white">Oturum Aç</h2>
+            <form onsubmit="event.preventDefault(); handleAuth();" class="flex flex-col gap-4">
+                <input id="authEmail" type="text" placeholder="Kullanıcı Adı" class="p-4 rounded bg-[#333] text-white border-none outline-none focus:bg-[#444]">
+                <input id="authPass" type="password" placeholder="Parola" class="p-4 rounded bg-[#333] text-white border-none outline-none focus:bg-[#444]">
+                <button type="submit" class="bg-red-600 py-4 rounded font-bold text-lg hover:bg-red-700 transition text-white">Giriş Yap</button>
+            </form>
+            <div class="mt-4 text-gray-400 text-sm">
+                <span id="authSwitchText">X12'ye yeni misiniz? </span>
+                <button onclick="toggleAuthMode()" class="text-white hover:underline font-bold" id="authSwitchBtn">Şimdi kaydolun.</button>
+            </div>
+            <div onclick="openAdminLogin()" class="mt-8 text-center text-xs text-gray-500 cursor-pointer hover:text-white">Yönetici Girişi</div>
+        </div>
+    </div>
+
+    <div id="profileScreen" class="hidden fixed inset-0 bg-[#141414] z-40 flex flex-col items-center justify-center">
+        <h1 id="profileTitle" class="text-4xl md:text-5xl font-medium mb-8 text-white">Kim izliyor?</h1>
+        <div id="profileList" class="flex flex-wrap gap-8 justify-center"></div>
+        <div class="mt-12 flex gap-4">
+            <button id="manageBtn" onclick="toggleManageMode()" class="border border-gray-500 px-6 py-2 text-gray-500 hover:text-white hover:border-white tracking-widest uppercase text-sm">Profil Yönetimi</button>
+            <button id="doneBtn" onclick="toggleManageMode()" class="hidden bg-white text-black font-bold px-6 py-2 hover:bg-red-600 hover:text-white tracking-widest uppercase text-sm">Tamamlandı</button>
+        </div>
+        <div id="addProfileContainer" class="mt-4">
+             <i class="fas fa-plus-circle text-5xl text-gray-500 hover:text-white cursor-pointer transition" onclick="openEditProfile(-1)"></i>
+        </div>
+    </div>
+
+    <div id="editProfileModal" class="hidden fixed inset-0 bg-black/90 z-[45] flex items-center justify-center p-4">
+        <div class="bg-[#181818] p-8 rounded-lg max-w-2xl w-full relative">
+            <button onclick="closeEditProfile()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <h2 class="text-3xl font-bold mb-6 border-b border-gray-700 pb-2 text-white">Profili Düzenle</h2>
+            <div class="flex flex-col md:flex-row gap-8">
+                <div class="flex flex-col items-center">
+                    <img id="editAvatarPreview" src="" class="w-32 h-32 rounded mb-4 object-cover border-2 border-gray-700">
+                    <p class="text-xs text-gray-400 mb-2">Avatar Seç:</p>
+                    <div class="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-2 bg-black rounded" id="avatarGrid"></div>
+                </div>
+                <div class="flex-1 space-y-4">
+                    <input id="editName" type="text" placeholder="Profil Adı" class="w-full bg-[#333] p-3 text-white rounded outline-none border border-transparent focus:border-white">
+                    <div class="flex items-center gap-2 border border-gray-600 p-3 rounded">
+                        <input id="editIsKid" type="checkbox" class="w-5 h-5 accent-red-600">
+                        <label for="editIsKid" class="cursor-pointer select-none text-gray-300">Çocuk Profili mi?</label>
+                    </div>
+                    <div class="border border-gray-600 p-3 rounded">
+                        <label class="text-sm text-gray-400 block mb-1">Profil Kilidi (PIN)</label>
+                        <input id="editPin" type="number" placeholder="4 Haneli (Opsiyonel)" class="w-full bg-[#333] p-2 text-white rounded outline-none" oninput="if(this.value.length > 4) this.value = this.value.slice(0,4);">
+                    </div>
+                    <div class="flex gap-4 pt-4">
+                        <button onclick="saveProfile()" class="bg-white text-black font-bold py-2 px-6 hover:bg-red-600 hover:text-white transition">Kaydet</button>
+                        <button onclick="closeEditProfile()" class="border border-gray-500 text-gray-400 py-2 px-6 hover:border-white hover:text-white transition">İptal</button>
+                        <button id="deleteProfileBtn" onclick="deleteProfile()" class="ml-auto text-red-600 border border-red-600 py-2 px-4 hover:bg-red-600 hover:text-white text-sm">Sil</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="pinModal" class="hidden fixed inset-0 bg-black/95 z-[48] flex items-center justify-center">
+        <div class="bg-[#181818] p-10 rounded text-center">
+            <h3 class="text-xl mb-4 text-white">Profil Kilidi</h3>
+            <p class="text-gray-400 text-sm mb-6"><span id="pinProfileName" class="font-bold text-white">User</span> profili için PIN girin.</p>
+            <div class="flex justify-center gap-2 mb-6">
+                <input id="pinInput" type="password" maxlength="4" class="bg-transparent border-b-2 border-white text-center text-3xl w-32 tracking-[10px] text-white outline-none focus:border-red-600">
+            </div>
+            <div class="grid grid-cols-3 gap-4 mb-4 text-white">
+                <button onclick="addPin(1)" class="bg-[#333] py-3 rounded hover:bg-[#444]">1</button>
+                <button onclick="addPin(2)" class="bg-[#333] py-3 rounded hover:bg-[#444]">2</button>
+                <button onclick="addPin(3)" class="bg-[#333] py-3 rounded hover:bg-[#444]">3</button>
+                <button onclick="addPin(4)" class="bg-[#333] py-3 rounded hover:bg-[#444]">4</button>
+                <button onclick="addPin(5)" class="bg-[#333] py-3 rounded hover:bg-[#444]">5</button>
+                <button onclick="addPin(6)" class="bg-[#333] py-3 rounded hover:bg-[#444]">6</button>
+                <button onclick="addPin(7)" class="bg-[#333] py-3 rounded hover:bg-[#444]">7</button>
+                <button onclick="addPin(8)" class="bg-[#333] py-3 rounded hover:bg-[#444]">8</button>
+                <button onclick="addPin(9)" class="bg-[#333] py-3 rounded hover:bg-[#444]">9</button>
+                <button onclick="clearPin()" class="text-red-500 font-bold">SIL</button>
+                <button onclick="addPin(0)" class="bg-[#333] py-3 rounded hover:bg-[#444]">0</button>
+                <button onclick="submitPin()" class="bg-white text-black font-bold rounded">OK</button>
+            </div>
+            <button onclick="closePinModal()" class="text-gray-500 hover:text-white text-xs mt-4">İptal</button>
+        </div>
+    </div>
+
+    <div id="appScreen" class="hidden min-h-screen pb-20">
+        <nav class="fixed w-full z-30 transition-all duration-300 nav-gradient px-4 md:px-12 py-4 flex items-center justify-between" id="navbar">
+            <div class="flex items-center gap-8">
+                <h1 class="text-red-600 text-3xl font-bold tracking-widest cursor-pointer" onclick="showCategory('all')">X12</h1>
+                <ul class="hidden md:flex gap-4 text-sm font-light text-gray-300">
+                    <li class="hover:text-white cursor-pointer transition" onclick="showCategory('all')">Ana Sayfa</li>
+                    <li class="hover:text-white cursor-pointer transition" onclick="showCategory('Aksiyon')">Aksiyon</li>
+                    <li class="hover:text-white cursor-pointer transition" onclick="showCategory('Bilim Kurgu')">Bilim Kurgu</li>
+                    <li class="hover:text-white cursor-pointer transition" onclick="showCategory('Çocuk')">Çocuk</li>
+                </ul>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right hidden sm:block">
+                    <span id="currentProfileName" class="block font-bold text-sm text-white">Profil</span>
+                </div>
+                <img id="currentProfileIcon" src="" class="w-8 h-8 rounded cursor-pointer border border-transparent hover:border-white" onclick="backToProfiles()">
+                <button onclick="logout()" class="text-xs text-red-500 hover:text-white ml-2">Çıkış</button>
+            </div>
+        </nav>
+
+        <div class="relative h-[70vh] w-full bg-cover bg-center" style="background-image: url('https://image.tmdb.org/t/p/original/qJ2tW6WMUDux911r6m7haRef0WH.jpg');">
+            <div class="absolute inset-0 bg-gradient-to-r from-black via-transparent to-transparent"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-[#141414] via-transparent to-transparent"></div>
+            <div class="absolute bottom-32 left-4 md:left-12 max-w-xl">
+                <h1 class="text-6xl font-bold mb-4 drop-shadow-lg text-white">The Dark Knight</h1>
+                <p class="text-lg text-gray-200 mb-6 drop-shadow-md line-clamp-3">Batman, organize suça karşı savaşını sürdürürken...</p>
+                <button class="bg-white text-black px-8 py-2 rounded font-bold flex items-center gap-2 hover:bg-gray-200 transition"><i class="fas fa-play"></i> Oynat</button>
+            </div>
+        </div>
+
+        <div class="px-4 md:px-12 -mt-20 relative z-20 space-y-8" id="contentRows"></div>
+
+        <footer class="mt-20 border-t border-gray-800 pt-10 px-12 pb-10 text-gray-500 text-sm">
+            <h3 class="text-white text-lg mb-4">Bize Ulaşın</h3>
+            <div class="flex items-center gap-2 cursor-pointer text-white hover:text-red-500 transition group" onclick="copySupportEmail()">
+                <i class="fas fa-envelope"></i>
+                <span id="displaySupportEmail"></span>
+                <span class="text-xs bg-gray-700 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition">Kopyala</span>
+            </div>
+        </footer>
+    </div>
+
+    <div id="movieModal" class="fixed inset-0 bg-black/80 z-[60] hidden flex items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-[#181818] rounded-lg w-full max-w-4xl overflow-hidden shadow-2xl relative">
+            <button onclick="closeModal()" class="absolute top-4 right-4 bg-[#181818] text-white rounded-full p-2 z-50 hover:bg-white hover:text-black"><i class="fas fa-times text-xl"></i></button>
+            <div class="relative h-96">
+                <img id="modalImg" src="" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-[#181818] via-transparent to-transparent"></div>
+                <div class="absolute bottom-10 left-10">
+                    <h2 id="modalTitle" class="text-5xl font-bold mb-4 drop-shadow-xl text-white">Başlık</h2>
+                    <button onclick="playFromModal()" class="bg-red-600 text-white px-8 py-3 rounded font-bold text-lg hover:bg-red-700"><i class="fas fa-play"></i> OYNAT</button>
+                </div>
+            </div>
+            <div class="p-10 text-gray-300">
+                <div class="flex gap-3 mb-4 text-sm font-bold"><span id="modalCategory" class="text-white bg-gray-700 px-2 py-1 rounded">Kategori</span></div>
+                <p id="modalDesc" class="leading-relaxed text-lg"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="playerModal" class="fixed inset-0 bg-black z-[100] hidden flex flex-col items-center justify-center">
+        <button onclick="closePlayer()" class="absolute top-6 left-6 text-white text-2xl hover:text-red-500 z-50 flex items-center gap-2"><i class="fas fa-arrow-left"></i> Geri Dön</button>
+        <div class="w-full h-full flex items-center justify-center">
+            <video id="mainVideo" controls class="w-full h-auto max-h-screen"><source src="" type="video/mp4"></video>
+        </div>
+    </div>
+
+    <div id="adminPanel" class="fixed inset-0 bg-[#000] z-[100] hidden overflow-y-auto">
+        <div class="max-w-6xl mx-auto p-6">
+            <div class="flex justify-between items-center mb-8 border-b border-gray-800 pb-4">
+                <h2 class="text-3xl font-bold text-red-600">X12 Yönetici</h2>
+                <button onclick="closeAdminPanel()" class="text-gray-400 hover:text-white">Çıkış &times;</button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <div class="lg:col-span-1 bg-[#181818] p-6 rounded-lg h-full flex flex-col justify-between">
+                    <h3 class="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Sistem Ayarları</h3>
+                    
+                    <div>
+                        <h4 class="text-lg font-semibold mb-2 text-gray-300">Bize Ulaşın E-postası</h4>
+                        <input id="adminSupportEmail" type="email" placeholder="Destek E-postası" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none">
+                        <button onclick="saveSupportEmail()" class="w-full bg-blue-600 py-2 rounded font-bold hover:bg-blue-700 text-white mb-6">E-postayı Kaydet</button>
+                    </div>
+
+                    <div class="mt-auto pt-4 border-t border-gray-700">
+                        <h4 class="text-lg font-semibold mb-2 text-gray-300">Tüm Verileri Sıfırla (Geri Getir)</h4>
+                        <p class="text-sm text-gray-500 mb-4">Bu işlem tüm kullanıcıları, filmleri ve ayarları başlangıç durumuna döndürür.</p>
+                        <button onclick="resetAllData()" class="w-full bg-red-700 py-3 rounded font-bold hover:bg-red-800 text-white">TÜM VERİLERİ SIFIRLA</button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1 space-y-8">
+                    <div class="bg-[#181818] p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Yeni Yönetici Ekle 👑</h3>
+                        <input id="newAdminUser" type="text" placeholder="Yeni Yönetici Kullanıcı Adı" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none">
+                        <input id="newAdminPass" type="password" placeholder="Yeni Yönetici Parolası" class="w-full bg-[#333] p-3 rounded mb-4 text-white border-none">
+                        <button onclick="addNewAdmin()" class="w-full bg-yellow-600 py-3 rounded font-bold hover:bg-yellow-700 text-white">Yöneticiyi Kaydet</button>
+                    </div>
+
+                    <div class="bg-[#181818] p-6 rounded-lg">
+                        <h3 class="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Film Ekle</h3>
+                        <div id="dropZone" class="drop-zone mb-4 rounded"><p>MP4 Sürükle & Bırak</p></div>
+                        <input id="adminTitle" type="text" placeholder="Başlık" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none">
+                        <input id="adminImg" type="text" placeholder="Resim URL" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none">
+                        <input id="adminVideo" type="text" placeholder="Video URL" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none">
+                        <textarea id="adminDesc" placeholder="Açıklama" class="w-full bg-[#333] p-3 rounded mb-2 text-white border-none h-24"></textarea>
+                        <select id="adminCat" class="w-full bg-[#333] p-3 rounded mb-4 text-white">
+                            <option value="Aksiyon">Aksiyon</option>
+                            <option value="Bilim Kurgu">Bilim Kurgu</option>
+                            <option value="Komedi">Komedi</option>
+                            <option value="Çocuk">Çocuk</option>
+                            <option value="Korku">Korku</option>
+                        </select>
+                        <button onclick="saveMovie()" class="w-full bg-red-600 py-3 rounded font-bold hover:bg-red-700 text-white">Yayınla</button>
+                    </div>
+                </div>
+                
+                <div class="lg:col-span-1 space-y-8">
+                    <div class="bg-[#181818] p-6 rounded-lg max-h-96 overflow-y-auto">
+                        <h3 class="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Kullanıcı Yönetimi</h3>
+                        <div id="adminUsersList" class="space-y-2"></div>
+                    </div>
+                    
+                    <div class="bg-[#181818] p-6 rounded-lg max-h-96 overflow-y-auto">
+                        <h3 class="text-xl font-bold mb-4 text-white border-b border-gray-700 pb-2">Filmler</h3>
+                        <div id="adminMoviesList" class="space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminLoginModal" class="fixed inset-0 bg-black/95 z-[110] hidden flex items-center justify-center">
+        <div class="bg-gray-900 p-8 rounded w-80 relative">
+            <button onclick="closeAdminLogin()" class="absolute top-2 right-4 text-gray-500">&times;</button>
+            <h2 class="text-xl font-bold text-blue-500 mb-4 text-center">Admin</h2>
+            <input id="admUser" placeholder="Kullanıcı" class="w-full bg-black p-2 mb-2 rounded text-white border border-gray-700">
+            <input id="admPass" type="password" placeholder="Şifre" class="w-full bg-black p-2 mb-4 rounded text-white border border-gray-700">
+            <button onclick="submitAdmin()" class="w-full bg-blue-600 py-2 rounded text-white font-bold">Giriş</button>
+        </div>
+    </div>
+
+    <script>
+        // YENİ: Yönetici listesini localStorage'dan alıyoruz. Eğer yoksa varsayılanı kullanır.
+        let defaultAdmins = JSON.parse(localStorage.getItem('x12_admins')) || [{u:"X12admin", p:"m1t1a1.x12"}];
+        
+        const avatars = [
+            "https://upload.wikimedia.org/wikipedia/commons/0/0b/Netflix-avatar.png",
+            "https://ih0.redbubble.net/image.618427277.3222/flat,1000x1000,075,f.u2.jpg",
+            "https://mir-s3-cdn-cf.behance.net/project_modules/disp/84c20033850498.56ba69ac290ea.png",
+            "https://mir-s3-cdn-cf.behance.net/project_modules/disp/64623a33850498.56ba69ac2a6f7.png",
+            "https://mir-s3-cdn-cf.behance.net/project_modules/disp/1bdc9a33850498.56ba69ac2ba5b.png"
+        ];
+        const sampleMovies = [
+            {title:"Big Buck Bunny", cat:"Çocuk", desc:"Tavşan macerası.", img:"https://peach.blender.org/wp-content/uploads/title_anouncement.jpg?x11217", mp4:"http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"},
+            {title:"Sintel", cat:"Bilim Kurgu", desc:"Ejderha arayışı.", img:"https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Sintel_poster.jpg/800px-Sintel_poster.jpg", mp4:"http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4"}
+        ];
+
+        let users = JSON.parse(localStorage.getItem('x12_users')) || [];
+        let movies = JSON.parse(localStorage.getItem('x12_movies')) || sampleMovies;
+        let currentUser = JSON.parse(localStorage.getItem('x12_session'));
+        let supportEmail = localStorage.getItem('x12_support_email') || "admin@x12.com";
+
+
+        window.onload = () => {
+            // Siyah ekran düzeltmesi
+            if (currentUser && (!currentUser.profiles || !Array.isArray(currentUser.profiles))) {
+                localStorage.removeItem('x12_session'); 
+                localStorage.removeItem('x12_users');   
+                location.reload();
+                return;
+            }
+            // E-postayı başlangıçta ayarla
+            document.getElementById('displaySupportEmail').innerText = supportEmail;
+            document.getElementById('adminSupportEmail').value = supportEmail;
+
+            initApp();
+        };
+
+        function initApp() {
+            if(currentUser) {
+                const freshUser = users.find(u => u.username === currentUser.username);
+                if(freshUser) currentUser = freshUser;
+                
+                document.getElementById('authScreen').classList.add('hidden');
+                showProfileScreen();
+            } else {
+                document.getElementById('authScreen').classList.remove('hidden');
+            }
+        }
+
+        // --- AUTH ---
+        let isRegistering = false;
+        function toggleAuthMode() {
+            isRegistering = !isRegistering;
+            document.getElementById('authTitle').innerText = isRegistering ? "Kayıt Ol" : "Oturum Aç";
+            document.querySelector('form button').innerText = isRegistering ? "Üye Ol" : "Giriş Yap";
+            document.getElementById('authSwitchText').innerText = isRegistering ? "Zaten üye misin? " : "X12'ye yeni misiniz? ";
+            document.getElementById('authSwitchBtn').innerText = isRegistering ? "Giriş yap." : "Şimdi kaydolun.";
+        }
+        function handleAuth() {
+            const u = document.getElementById('authEmail').value;
+            const p = document.getElementById('authPass').value;
+            if(!u || !p) return alert("Bilgileri girin.");
+
+            if(isRegistering) {
+                if(users.some(us => us.username === u)) return alert("Kullanıcı adı alınmış.");
+                const newUser = { username: u, password: p, profiles: [{name: u, icon: avatars[0], isKid: false, pin: null}] };
+                users.push(newUser);
+                localStorage.setItem('x12_users', JSON.stringify(users));
+                alert("Kayıt başarılı."); toggleAuthMode();
+            } else {
+                const found = users.find(us => us.username === u && us.password === p);
+                if(found) {
+                    currentUser = found;
+                    localStorage.setItem('x12_session', JSON.stringify(currentUser));
+                    document.getElementById('authScreen').classList.add('hidden');
+                    showProfileScreen();
+                } else alert("Hatalı bilgi.");
+            }
+        }
+        function logout() { localStorage.removeItem('x12_session'); location.reload(); }
+
+        // --- PROFİL YÖNETİMİ (Kısaltıldı) ---
+        let isManaging = false;
+        function toggleManageMode() {
+            isManaging = !isManaging;
+            const mBtn = document.getElementById('manageBtn');
+            const dBtn = document.getElementById('doneBtn');
+            const addC = document.getElementById('addProfileContainer');
+            if(isManaging) { mBtn.classList.add('hidden'); dBtn.classList.remove('hidden'); addC.classList.add('hidden'); }
+            else { mBtn.classList.remove('hidden'); dBtn.classList.add('hidden'); addC.classList.remove('hidden'); }
+            renderProfiles();
+        }
+        function showProfileScreen() {
+            document.getElementById('appScreen').classList.add('hidden');
+            document.getElementById('profileScreen').classList.remove('hidden');
+            renderProfiles();
+        }
+        function renderProfiles() {
+            const list = document.getElementById('profileList');
+            list.innerHTML = "";
+            currentUser.profiles.forEach((prof, idx) => {
+                const overlay = isManaging 
+                    ? `<div class="absolute inset-0 bg-black/50 flex items-center justify-center rounded"><i class="fas fa-pencil-alt text-white text-3xl"></i></div>` 
+                    : (prof.pin ? `<div class="absolute top-1 right-1 bg-black/60 rounded px-1"><i class="fas fa-lock text-xs text-white"></i></div>` : '');
+                list.innerHTML += `
+                    <div onclick="${isManaging ? `openEditProfile(${idx})` : `tryEnterProfile(${idx})`}" class="group flex flex-col items-center cursor-pointer profile-anim relative">
+                        <div class="w-32 h-32 rounded overflow-hidden border-2 border-transparent group-hover:border-white transition relative">
+                            <img src="${prof.icon}" class="w-full h-full object-cover">
+                            ${overlay}
+                        </div>
+                        <span class="mt-4 text-gray-400 group-hover:text-white text-lg">${prof.name}</span>
+                    </div>`;
+            });
+        }
+        function backToProfiles() { showProfileScreen(); }
+        let editingIdx = -1, selAvatar = avatars[0];
+        function openEditProfile(idx) {
+            editingIdx = idx;
+            document.getElementById('editProfileModal').classList.remove('hidden');
+            const grid = document.getElementById('avatarGrid');
+            grid.innerHTML = "";
+            avatars.forEach(url => grid.innerHTML += `<img src="${url}" onclick="selectAvatar('${url}')" class="w-12 h-12 rounded object-cover avatar-option">`);
+            
+            if(idx === -1) {
+                document.getElementById('editName').value = "";
+                document.getElementById('editPin').value = "";
+                document.getElementById('editIsKid').checked = false;
+                selectAvatar(avatars[0]);
+                document.getElementById('deleteProfileBtn').classList.add('hidden');
+            } else {
+                const p = currentUser.profiles[idx];
+                document.getElementById('editName').value = p.name;
+                document.getElementById('editPin').value = p.pin || "";
+                document.getElementById('editIsKid').checked = p.isKid;
+                selectAvatar(p.icon);
+                document.getElementById('deleteProfileBtn').classList.remove('hidden');
+            }
+        }
+        function selectAvatar(url) { selAvatar = url; document.getElementById('editAvatarPreview').src = url; }
+        function closeEditProfile() { document.getElementById('editProfileModal').classList.add('hidden'); }
+        function saveProfile() {
+            const n = document.getElementById('editName').value;
+            if(!n) return alert("İsim gir.");
+            let pin = document.getElementById('editPin').value; if(!pin) pin = null;
+            const newData = { name:n, icon:selAvatar, isKid:document.getElementById('editIsKid').checked, pin:pin };
+            
+            if(editingIdx === -1) currentUser.profiles.push(newData);
+            else currentUser.profiles[editingIdx] = newData;
+            
+            updateUser(); closeEditProfile(); renderProfiles();
+        }
+        function deleteProfile() {
+            if(currentUser.profiles.length <= 1) return alert("En az 1 profil kalmalı.");
+            if(confirm("Silinsin mi?")) { currentUser.profiles.splice(editingIdx,1); updateUser(); closeEditProfile(); renderProfiles(); }
+        }
+        function updateUser() {
+            const idx = users.findIndex(u=>u.username===currentUser.username);
+            users[idx] = currentUser;
+            localStorage.setItem('x12_users', JSON.stringify(users));
+            localStorage.setItem('x12_session', JSON.stringify(currentUser));
+        }
+        let pendingIdx = -1;
+        function tryEnterProfile(idx) {
+            const p = currentUser.profiles[idx];
+            if(p.pin) { pendingIdx = idx; document.getElementById('pinProfileName').innerText = p.name; document.getElementById('pinInput').value = ""; document.getElementById('pinModal').classList.remove('hidden'); }
+            else enterApp(idx);
+        }
+        function addPin(n) { const i = document.getElementById('pinInput'); if(i.value.length<4) i.value+=n; }
+        function clearPin() { document.getElementById('pinInput').value = ""; }
+        function closePinModal() { document.getElementById('pinModal').classList.add('hidden'); }
+        function submitPin() {
+            if(document.getElementById('pinInput').value === currentUser.profiles[pendingIdx].pin) { closePinModal(); enterApp(pendingIdx); }
+            else { alert("Yanlış PIN"); clearPin(); }
+        }
+        function enterApp(idx) {
+            const p = currentUser.profiles[idx];
+            document.getElementById('profileScreen').classList.add('hidden');
+            document.getElementById('appScreen').classList.remove('hidden');
+            document.getElementById('currentProfileName').innerText = p.name;
+            document.getElementById('currentProfileIcon').src = p.icon;
+            renderContent(p.isKid ? 'Çocuk' : 'all');
+        }
+
+
+        // --- DESTEK E-POSTASI İŞLEMLERİ ---
+        function copySupportEmail() { 
+            navigator.clipboard.writeText(supportEmail).then(()=>alert("E-posta kopyalandı.")); 
+        }
+
+        function saveSupportEmail() {
+            const newEmail = document.getElementById('adminSupportEmail').value;
+            if (!newEmail || !newEmail.includes('@')) {
+                return alert("Geçerli bir e-posta adresi girin.");
+            }
+            supportEmail = newEmail;
+            localStorage.setItem('x12_support_email', supportEmail);
+            document.getElementById('displaySupportEmail').innerText = supportEmail;
+            alert("Destek e-postası başarıyla güncellendi!");
+        }
+
+
+        // --- YÖNETİCİ İŞLEMLERİ ---
+        function openAdminLogin() { document.getElementById('adminLoginModal').classList.remove('hidden'); }
+        function closeAdminLogin() { document.getElementById('adminLoginModal').classList.add('hidden'); }
+        
+        function submitAdmin() { 
+            const u=document.getElementById('admUser').value, p=document.getElementById('admPass').value; 
+            if(defaultAdmins.some(a=>a.u===u&&a.p===p)) { 
+                closeAdminLogin(); 
+                document.getElementById('adminPanel').classList.remove('hidden'); 
+                renderAdminList(); 
+            } else alert("Hatalı yönetici bilgisi."); 
+        }
+
+        function closeAdminPanel() { document.getElementById('adminPanel').classList.add('hidden'); }
+        
+        // YENİ: Yeni Yönetici Ekleme Fonksiyonu
+        function addNewAdmin() {
+            const newUser = document.getElementById('newAdminUser').value;
+            const newPass = document.getElementById('newAdminPass').value;
+
+            if (!newUser || !newPass) {
+                return alert("Kullanıcı adı ve parola boş bırakılamaz.");
+            }
+            if (defaultAdmins.some(a => a.u === newUser)) {
+                return alert("Bu kullanıcı adı zaten bir yönetici hesabı tarafından kullanılıyor.");
+            }
+
+            const newAdmin = { u: newUser, p: newPass };
+            defaultAdmins.push(newAdmin);
+            localStorage.setItem('x12_admins', JSON.stringify(defaultAdmins));
+            
+            document.getElementById('newAdminUser').value = '';
+            document.getElementById('newAdminPass').value = '';
+
+            alert(`Yeni yönetici '${newUser}' başarıyla eklendi!`);
+        }
+
+        // --- YÖNETİCİ PANELİ LİSTELERİ ---
+        function renderAdminList() {
+            renderAdminMoviesList();
+            renderAdminUsersList(); 
+        }
+
+        function renderAdminUsersList() {
+            const div = document.getElementById('adminUsersList');
+            div.innerHTML = "";
+            users.forEach((u, i) => {
+                const isCurrent = (currentUser && currentUser.username === u.username) ? '<span class="text-xs bg-red-600 px-1 rounded ml-2">AKTİF</span>' : '';
+                div.innerHTML += `
+                    <div class="flex justify-between items-center bg-black p-2 rounded border border-gray-700">
+                        <span class="truncate w-1/2 text-white">${u.username} ${isCurrent}</span>
+                        <button onclick="deleteUser(${i})" class="text-red-500 border border-red-500 px-2 rounded text-xs hover:bg-red-500 hover:text-white" title="Kullanıcıyı ve tüm profillerini sil">SİL</button>
+                    </div>
+                `;
+            });
+        }
+
+        function deleteUser(index) {
+            if (confirm(`'${users[index].username}' kullanıcısını (tüm profilleri dahil) silmek istediğinizden emin misiniz?`)) {
+                const deletedUsername = users[index].username;
+                users.splice(index, 1);
+                localStorage.setItem('x12_users', JSON.stringify(users));
+                
+                if (currentUser && currentUser.username === deletedUsername) {
+                    localStorage.removeItem('x12_session');
+                    alert("Kullanıcı silindi ve oturumu kapatıldı.");
+                    location.reload();
+                } else {
+                    alert("Kullanıcı başarıyla silindi.");
+                    renderAdminUsersList(); 
+                }
+            }
+        }
+        
+        function resetAllData() {
+            if (confirm("DİKKAT! Tüm kullanıcı hesaplarını, filmleri ve ayarları silip sistemi başlangıç ayarlarına (hazır filmler, varsayılan admin) döndürmek istediğinizden emin misiniz? Bu işlem geri alınamaz.")) {
+                localStorage.clear();
+                alert("Tüm veriler sıfırlandı. Uygulama yeniden başlatılıyor.");
+                location.reload();
+            }
+        }
+
+        function renderAdminMoviesList() {
+            const d=document.getElementById('adminMoviesList'); d.innerHTML="";
+            movies.forEach((m,ix)=> d.innerHTML+=`<div class="flex justify-between items-center bg-black p-2 rounded border border-gray-700 mb-2"><span class="text-white truncate w-1/2">${m.title}</span><button onclick="deleteMovie(${ix})" class="text-red-500 border border-red-500 px-2 rounded text-xs">SİL</button></div>`);
+        }
+        function saveMovie() {
+            const t=document.getElementById('adminTitle').value, i=document.getElementById('adminImg').value, v=document.getElementById('adminVideo').value, d=document.getElementById('adminDesc').value, c=document.getElementById('adminCat').value;
+            if(t&&i&&v) { movies.unshift({title:t,img:i,mp4:v,desc:d,cat:c}); localStorage.setItem('x12_movies',JSON.stringify(movies)); alert("Eklendi"); renderAdminList(); }
+        }
+        function deleteMovie(ix) { if(confirm("Sil?")) { movies.splice(ix,1); localStorage.setItem('x12_movies',JSON.stringify(movies)); renderAdminList(); } }
+
+        
+        // Sürükle Bırak
+        const dz = document.getElementById('dropZone');
+        dz.addEventListener('dragover', e=>{e.preventDefault();dz.style.borderColor="red"});
+        dz.addEventListener('drop', e=>{e.preventDefault();dz.style.borderColor="#444"; const f=e.dataTransfer.files[0]; if(f&&f.type.includes('video')) document.getElementById('adminVideo').value=URL.createObjectURL(f); });
+
+        function renderContent(filter) {
+            const con = document.getElementById('contentRows'); con.innerHTML = "";
+            const cats = ["Aksiyon", "Bilim Kurgu", "Komedi", "Çocuk", "Korku"];
+            cats.forEach(c => {
+                if(filter!=='all' && filter!==c) return;
+                const ms = movies.filter(m => m.cat === c);
+                if(ms.length > 0) {
+                    let html = "";
+                    ms.forEach(m => {
+                        const gIdx = movies.indexOf(m);
+                        html += `<div onclick="openModal(${gIdx})" class="movie-card min-w-[150px] w-[150px] md:min-w-[200px] md:w-[200px] h-[300px] rounded overflow-hidden bg-[#222]"><img src="${m.img}" class="w-full h-full object-cover"></div>`;
+                    });
+                    con.innerHTML += `<div><h3 class="text-xl font-bold mb-4 text-white pl-2 border-l-4 border-red-600">${c}</h3><div class="flex gap-4 overflow-x-auto hide-scroll pb-4 px-2">${html}</div></div>`;
+                }
+            });
+        }
+        function showCategory(c) { renderContent(c); }
+        let selMovIdx = -1;
+        function openModal(i) { selMovIdx=i; const m=movies[i]; document.getElementById('modalImg').src=m.img; document.getElementById('modalTitle').innerText=m.title; document.getElementById('modalDesc').innerText=m.desc||""; document.getElementById('modalCategory').innerText=m.cat; document.getElementById('movieModal').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('movieModal').classList.add('hidden'); }
+        function playFromModal() { closeModal(); const m=movies[selMovIdx]; if(!m.mp4)return alert("Video yok"); document.getElementById('mainVideo').src=m.mp4; document.getElementById('playerModal').classList.remove('hidden'); document.getElementById('mainVideo').play(); }
+        function closePlayer() { document.getElementById('mainVideo').pause(); document.getElementById('playerModal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
